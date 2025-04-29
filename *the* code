@@ -5,7 +5,7 @@ from scipy.optimize import curve_fit
 import seaborn as sns
 from scipy.interpolate import interp1d
 
-# Raw data
+# PLUG IN YOUR RAW DATA HERE
 conc = np.array([10, 5, 2.5, 1.25, 0.625, 0.313, 0.156, 0.0781, 0.0391, 0.0195, 0.00977, 0.00488] * 3) # Repeat concentrations
 raw_OD = [0.5406,	0.5874,	0.5778,
           0.518,	0.5974,	0.5899,
@@ -68,9 +68,9 @@ plt.text(estimated_ic50_conc_od, ic50_od_value,
          bbox=dict(facecolor='white', edgecolor='red', boxstyle='round,pad=0.3'))
 
 # plt.xscale('log') # REMOVED THIS LINE!
-plt.xlabel("[HB]] (%)")
+plt.xlabel("[compound]] (%)")
 plt.ylabel("Optical Density (OD)")
-plt.title("Effect of HB on P. putida Growth at Hour 1")
+plt.title("Effect of whatever compound on whatever cell at Hour whatever")
 #plt.grid(True, which="both", linestyle='--', alpha=0.5)
 #plt.legend()
 plt.tight_layout()
