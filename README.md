@@ -1,3 +1,3 @@
 # IC50
 
-# IC50 for 12 concentrations super duper easy just plug and chug
+super duper easy IC50 for 12 concentrations just plug and chug also generates a a cute lil dataframe table
