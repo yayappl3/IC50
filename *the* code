@@ -1,0 +1,82 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from scipy.optimize import curve_fit
+import seaborn as sns
+from scipy.interpolate import interp1d
+
+# Raw data
+conc = np.array([10, 5, 2.5, 1.25, 0.625, 0.313, 0.156, 0.0781, 0.0391, 0.0195, 0.00977, 0.00488] * 3) # Repeat concentrations
+raw_OD = [0.5406,	0.5874,	0.5778,
+          0.518,	0.5974,	0.5899,
+          0.5253,	0.5802,	0.5833,
+          0.5584,	0.528,	0.5864,
+          0.5138,	0.534,	0.5532,
+          0.465,	0.5239,	0.5137,
+          0.4314,	0.4837,	0.5384,
+          0.4919,	0.4649,	0.5267,
+          0.4713,	0.4582,	0.4194,
+          0.5191,	0.4728,	0.4706,
+          0.5162,	0.4998,	0.4869,
+          0.5028,	0.4791,	0.4892]
+
+# Process OD into DataFrame
+OD_array = np.array(raw_OD).reshape(12, 3)
+df_OD = pd.DataFrame(OD_array, columns=["Sample 1", "Sample 2", "Sample 3"])
+df_OD["Std"] = df_OD[["Sample 1", "Sample 2", "Sample 3"]].std(axis=1)
+df_OD["Average"] = df_OD.mean(axis=1)
+df_OD["Concentration"] = conc[:12] # Add concentration to the average OD dataframe
+print(df_OD)
+
+# Melt the dataframe for plotting individual OD values
+melted_od = pd.melt(df_OD, id_vars=['Concentration'], var_name='Replicate', value_name='OD')
+
+# Sort concentration for the fitted curve
+sorted_indices = np.argsort(df_OD["Concentration"])
+x_sorted = df_OD["Concentration"].values[sorted_indices]
+y_sorted_avg_od = df_OD["Average"].values[sorted_indices]
+
+# Define a sigmoidal function (still useful for fitting the dose-response shape)
+def sigmoid_od(x, ec50, hill_slope, top, bottom):
+    return bottom + (top - bottom) / (1 + (x / ec50)**hill_slope)
+
+# Fit the sigmoidal curve to the average OD
+popt_od, pcov_od = curve_fit(sigmoid_od, x_sorted, y_sorted_avg_od, p0=[np.median(x_sorted), 1, max(y_sorted_avg_od), min(y_sorted_avg_od)], bounds=([0, -np.inf, 0, 0], [np.inf, np.inf, np.inf, np.inf]))
+ec50_fitted_od, hill_slope_fitted_od, top_fitted_od, bottom_fitted_od = popt_od
+
+# Generate smooth curve data for linear scale
+x_smooth_od = np.linspace(min(x_sorted), max(x_sorted), 300)
+y_smooth_od = sigmoid_od(x_smooth_od, *popt_od)
+
+# Calculate the OD at the "IC50" (midpoint between top and bottom plateaus)
+ic50_od_value = (top_fitted_od + bottom_fitted_od) / 2
+# Find the concentration at this OD using the fitted curve (approximation)
+f_interp = interp1d(y_smooth_od, x_smooth_od, kind='linear', fill_value="extrapolate")
+estimated_ic50_conc_od = f_interp(ic50_od_value)
+
+# Plot
+plt.figure(figsize=(10, 6))
+#sns.scatterplot(data=melted_od, x='Concentration', y='OD', color='navy', alpha=0.7)
+plt.errorbar(df_OD["Concentration"], df_OD["Average"], yerr=df_OD["Std"], fmt='o', color='black',
+             ecolor='gray', elinewidth=1.5, capsize=4, label="Mean ± SD")
+plt.plot(x_smooth_od, y_smooth_od, color='red', label=f"Sigmoidal Fit")
+plt.axhline(y=ic50_od_value, color='r', linestyle='--', label=f'OD at "IC50" ({ic50_od_value:.2f})')
+plt.axvline(x=estimated_ic50_conc_od, color='r', linestyle=':', label=f'Estimated IC50 ≈ {estimated_ic50_conc_od:.2f} %')
+plt.text(estimated_ic50_conc_od, ic50_od_value,
+         f"IC₅₀ ≈ {estimated_ic50_conc_od:.2f}%",
+         color='black', fontsize=15, ha='left', va='bottom',
+         bbox=dict(facecolor='white', edgecolor='red', boxstyle='round,pad=0.3'))
+
+# plt.xscale('log') # REMOVED THIS LINE!
+plt.xlabel("[HB]] (%)")
+plt.ylabel("Optical Density (OD)")
+plt.title("Effect of HB on P. putida Growth at Hour 1")
+#plt.grid(True, which="both", linestyle='--', alpha=0.5)
+#plt.legend()
+plt.tight_layout()
+plt.show()
+
+print(f"Estimated IC50 (Concentration at Midpoint OD): {estimated_ic50_conc_od:.2f} % BDO")
+print(f"Hill Slope of OD Curve: {hill_slope_fitted_od:.2f}")
+print(f"Top Plateau (OD): {top_fitted_od:.2f}")
+print(f"Bottom Plateau (OD): {bottom_fitted_od:.2f}")
